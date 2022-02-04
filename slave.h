@@ -57,11 +57,8 @@ long findAvailableAddr(FILE* sFile, FILE* sGarbage) {
 }
 
 err_code_t getSlave(struct Slave* res, int masterId, int id) {
-    FILE* mInd = fopen(MASTER_IND_LOC, "rb");
-    FILE* mFile = fopen(MASTER_FILE_LOC, "rb");
     FILE* sFile = fopen(SLAVE_FILE_LOC, "rb");
-
-    if (!mInd || !mFile || !sFile)
+    if (!sFile)
         return FILESYSTEM_ERROR;
 
     struct Master master;
@@ -87,7 +84,7 @@ err_code_t getSlave(struct Slave* res, int masterId, int id) {
 
     memcpy(res, &slave, sizeof(struct Slave));
 
-    fclose(mInd); fclose(mFile); fclose(sFile);
+    fclose(sFile);
     return SUCCESS;
 }
 
@@ -116,8 +113,7 @@ err_code_t insertSlave(int masterId, struct Slave slave) {
 
     if (master.firstSlaveAddr == -1) {
         master.firstSlaveAddr = sAddr;
-        long mAddr = retriveMasterAddr(mInd, masterId);
-        setMasterAtAddr(mFile, mAddr, master);
+        setMasterAtId(mInd, mFile, masterId, master);
     }
     else {
         struct Slave slave;
@@ -139,23 +135,16 @@ err_code_t insertSlave(int masterId, struct Slave slave) {
 }
 
 err_code_t deleteSlave(int masterId, int id) {
-    FILE* mInd = fopen(MASTER_IND_LOC, "rb");
-    FILE* mFile = fopen(MASTER_FILE_LOC, "r+b");
     FILE* sFile = fopen(SLAVE_FILE_LOC, "r+b");
     FILE* sGarbage = fopen(SLAVE_GARBAGE_LOC, "r+b");
 
-    if (!mInd || !mFile || !sFile || !sGarbage)
+    if (!sFile || !sGarbage)
         return FILESYSTEM_ERROR;
 
-    if (!checkIndexInBounds(mInd, masterId)) {
-        return INDEX_OUT_OF_BOUNDS;
-    }
-
-    struct Master master = retriveMaster(mInd, mFile, masterId);
-
-    if (master.deleted) {
-        return MASTER_DELETED;
-    }
+    struct Master master;
+    err_code_t err = getMaster(&master, masterId);
+    if (err != SUCCESS)
+        return err;
 
     struct Slave slave;
     long prevAddr = -1;
@@ -183,16 +172,14 @@ err_code_t deleteSlave(int masterId, int id) {
 
     addAddrToGarbage(sGarbage, nextSlaveAddr);
 
-    fclose(mInd); fclose(mFile); fclose(sFile); fclose(sGarbage);
+    fclose(sFile); fclose(sGarbage);
     return SUCCESS;
 }
 
 err_code_t updateSlave(int masterId, struct Slave updatedSlave) {
-    FILE* mInd = fopen(MASTER_IND_LOC, "rb");
-    FILE* mFile = fopen(MASTER_FILE_LOC, "r+b");
     FILE* sFile = fopen(SLAVE_FILE_LOC, "r+b");
 
-    if (!mInd || !mFile || !sFile)
+    if (!sFile)
         return FILESYSTEM_ERROR;
 
     struct Master master;
@@ -220,6 +207,6 @@ err_code_t updateSlave(int masterId, struct Slave updatedSlave) {
     updatedSlave.carId = slave.carId;
     setSlaveAtAttr(sFile, updatedSlave, nextSlaveAddr);
 
-    fclose(mInd); fclose(mFile); fclose(sFile);
+    fclose(sFile);
     return SUCCESS;
 }
