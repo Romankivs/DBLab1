@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "slave.h"
 #include "master.h"
+#include "print.h"
 
 int main() {
     struct Master m = {1, "BM", "Germany", "bmw.com",
@@ -52,7 +53,9 @@ int main() {
 
     slave_err_code_t  sRes = getSlave(1, 4);
     if (sRes != 0) printf("%s\n", sErrToStr(sRes));
-    master_err_code_t res = getMaster(1);
+    struct Master mRes;
+    master_err_code_t res = getMaster(&mRes, 1);
     if (res != 0) printf("%s", mErrToStr(res));
+    printMasterUtil(mRes);
     return 0;
 }

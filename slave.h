@@ -7,8 +7,10 @@
 #define SLAVE_GARBAGE_LOC "slave_garbage"
 
 struct Slave retriveSlaveFromAddr(FILE* sFile, long sAddr) {
+    struct Slave res;
     fseek(sFile, sAddr, SEEK_SET);
-    fread(&sAddr, sizeof(struct Slave), 1, sFile);
+    fread(&res, sizeof(struct Slave), 1, sFile);
+    return res;
 }
 
 void setSlaveAtAttr(FILE* sFile, struct Slave slave, long sAddr) {
@@ -136,8 +138,7 @@ slave_err_code_t insertSlave(int masterId, struct Slave slave) {
         struct Slave slave;
         long nextSlaveAddr = master.firstSlaveAddr;
         while (true) {
-            slave = retriveSlaveFromAddr(nextSlaveAddr);
-
+            slave = retriveSlaveFromAddr(sFile, nextSlaveAddr);
             if (slave.nextSlave == -1)
                 break;
 

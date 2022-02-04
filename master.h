@@ -3,6 +3,7 @@
 #include "error.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #define MASTER_FILE_LOC "master.fl"
 #define MASTER_IND_LOC "master.ind"
@@ -42,6 +43,11 @@ struct Master retriveMaster(FILE* mInd, FILE* mFile, int id) {
 void setMasterAtAddr(FILE* mFile, long mAddr, struct Master master) {
     fseek(mFile, mAddr, SEEK_SET);
     fwrite(&master, sizeof(master), 1, mFile);
+}
+
+void setMasterAtId(FILE* mInd, FILE* mFile, int id, struct Master master) {
+    long mAddr = retriveMasterAddr(mInd, id);
+    setMasterAtAddr(mFile, mAddr, master);
 }
 
 int getGarbageCounter(FILE* mGarbage) {
@@ -93,7 +99,7 @@ int retriveAvailableIdFromIndexTable(FILE* mInd) {
     return newId;
 }
 
-master_err_code_t getMaster(int id) {
+master_err_code_t getMaster(struct Master* res, int id) {
     FILE* mInd = fopen(MASTER_IND_LOC, "rb");
     FILE* mFile = fopen(MASTER_FILE_LOC, "rb");
 
@@ -111,14 +117,9 @@ master_err_code_t getMaster(int id) {
         return MASTER_DELETED;
     }
 
-    printf("Master id: %i\n", master.manufacturerId);
-    printf("Master name: %s\n", master.name);
-    printf("Master country: %s\n", master.country);
-    printf("Master website: %s\n", master.website);
-    printf("Master year of foundation: %i\n", master.yearOfFoundation);
+    memcpy(res, &master, sizeof(struct Master));
 
-    fclose(mInd);
-    fclose(mFile);
+    fclose(mInd); fclose(mFile);
     return SUCCESS;
 }
 
@@ -136,30 +137,20 @@ master_err_code_t insertMaster(struct Master master) {
     int garbageIdCount = getGarbageCounter(mGarbage);
 
     if (garbageIdCount != 0) {
-        // get available id
         int availableId = retriveAvailableIdFromGarbage(mGarbage);
         master.manufacturerId = availableId;
 
-        // get master address
-        long mAddr = retriveMasterAddr(mInd, availableId);
-
-        // replace deleted master
-        setMasterAtAddr(mFile, mAddr, master);
+        setMasterAtId(mInd, mFile, availableId, master);
     }
     else {
-        // get new id
         master.manufacturerId = retriveAvailableIdFromIndexTable(mInd);
 
-        // store addr in index table
         long mAddr = addNewAddrToIndexTable(mInd, mFile);
 
-        // store master in master file
         setMasterAtAddr(mFile, mAddr, master);
     }
 
-    fclose(mInd);
-    fclose(mFile);
-    fclose(mGarbage);
+    fclose(mInd); fclose(mFile); fclose(mGarbage);
     return SUCCESS;
 }
 
@@ -168,31 +159,18 @@ master_err_code_t deleteMaster(int id) {
     FILE* mFile = fopen(MASTER_FILE_LOC, "r+b");
     FILE* mGarbage = fopen(MASTER_GARBAGE_LOC, "r+b");
 
-    if (!mInd || !mFile || !mGarbage)
-        return FILESYSTEM_ERROR;
-
-    if (!checkIndexInBounds(mInd, id)) {
-        return INDEX_OUT_OF_BOUNDS;
-    }
-
-    long mAddr = retriveMasterAddr(mInd, id);
-
-    struct Master master = retriveMasterFromAddr(mFile, mAddr);
-
-    if (master.deleted) {
-        return MASTER_DELETED;
-    }
+    struct Master master;
+    master_err_code_t  err = getMaster(&master, id);
+    if (err != SUCCESS)
+        return err;
 
     // save marked as deleted
     master.deleted = true;
-    setMasterAtAddr(mFile, mAddr, master);
+    setMasterAtId(mInd, mFile, id, master);
 
     addIdToGarbage(mGarbage, id);
 
-    fclose(mInd);
-    fclose(mFile);
-    fclose(mGarbage);
-
+    fclose(mInd); fclose(mFile); fclose(mGarbage);
     return SUCCESS;
 }
 
@@ -207,22 +185,17 @@ master_err_code_t updateMaster(struct Master master) {
         return INDEX_OUT_OF_BOUNDS;
     }
 
-    long mAddr = retriveMasterAddr(mInd, master.manufacturerId);
-
     // get master from address to check if deleted
-    struct Master oldMaster = retriveMasterFromAddr(mFile, mAddr);
-
-    if (oldMaster.deleted) {
-        return MASTER_DELETED;
-    }
+    struct Master oldMaster;
+    master_err_code_t err = getMaster(&oldMaster, master.manufacturerId);
+    if (err != SUCCESS)
+        return err;
 
     // id cannot be changed
     master.manufacturerId = oldMaster.manufacturerId;
 
-    // update master
-    setMasterAtAddr(mFile, mAddr, master);
+    setMasterAtId(mInd, mFile, master.manufacturerId, master);
 
-    fclose(mInd);
-    fclose(mFile);
+    fclose(mInd); fclose(mFile);
     return SUCCESS;
 }
