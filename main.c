@@ -51,11 +51,13 @@ int main() {
     insertSlave(1, s2);
     //updateSlave(1, s2);
 
-    slave_err_code_t  sRes = getSlave(1, 4);
-    if (sRes != 0) printf("%s\n", sErrToStr(sRes));
+    struct Slave slave;
+    err_code_t  sRes = getSlave(&slave, 1, 4);
+    if (sRes != 0) printf("%s\n", errToStr(sRes));
+    printSlaveUtil(slave);
     struct Master mRes;
-    master_err_code_t res = getMaster(&mRes, 1);
-    if (res != 0) printf("%s", mErrToStr(res));
+    err_code_t res = getMaster(&mRes, 1);
+    if (res != 0) printf("%s", errToStr(res));
     printMasterUtil(mRes);
     return 0;
 }

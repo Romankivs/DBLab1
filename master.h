@@ -99,7 +99,7 @@ int retriveAvailableIdFromIndexTable(FILE* mInd) {
     return newId;
 }
 
-master_err_code_t getMaster(struct Master* res, int id) {
+err_code_t getMaster(struct Master* res, int id) {
     FILE* mInd = fopen(MASTER_IND_LOC, "rb");
     FILE* mFile = fopen(MASTER_FILE_LOC, "rb");
 
@@ -123,7 +123,7 @@ master_err_code_t getMaster(struct Master* res, int id) {
     return SUCCESS;
 }
 
-master_err_code_t insertMaster(struct Master master) {
+err_code_t insertMaster(struct Master master) {
     FILE* mInd = fopen(MASTER_IND_LOC, "r+b");
     FILE* mFile = fopen(MASTER_FILE_LOC, "r+b");
     FILE* mGarbage = fopen(MASTER_GARBAGE_LOC, "r+b");
@@ -154,13 +154,16 @@ master_err_code_t insertMaster(struct Master master) {
     return SUCCESS;
 }
 
-master_err_code_t deleteMaster(int id) {
+err_code_t deleteMaster(int id) {
     FILE* mInd = fopen(MASTER_IND_LOC, "rb");
     FILE* mFile = fopen(MASTER_FILE_LOC, "r+b");
     FILE* mGarbage = fopen(MASTER_GARBAGE_LOC, "r+b");
 
+    if (!mInd || !mFile || !mGarbage)
+        return FILESYSTEM_ERROR;
+
     struct Master master;
-    master_err_code_t  err = getMaster(&master, id);
+    err_code_t  err = getMaster(&master, id);
     if (err != SUCCESS)
         return err;
 
@@ -174,25 +177,21 @@ master_err_code_t deleteMaster(int id) {
     return SUCCESS;
 }
 
-master_err_code_t updateMaster(struct Master master) {
+err_code_t updateMaster(struct Master master) {
     FILE* mInd = fopen(MASTER_IND_LOC, "rb");
     FILE* mFile = fopen(MASTER_FILE_LOC, "r+b");
 
     if (!mInd || !mFile)
         return FILESYSTEM_ERROR;
 
-    if (!checkIndexInBounds(mInd, master.manufacturerId)) {
-        return INDEX_OUT_OF_BOUNDS;
-    }
-
-    // get master from address to check if deleted
     struct Master oldMaster;
-    master_err_code_t err = getMaster(&oldMaster, master.manufacturerId);
+    err_code_t err = getMaster(&oldMaster, master.manufacturerId);
     if (err != SUCCESS)
         return err;
 
-    // id cannot be changed
     master.manufacturerId = oldMaster.manufacturerId;
+    master.deleted = oldMaster.deleted;
+    master.firstSlaveAddr = oldMaster.firstSlaveAddr;
 
     setMasterAtId(mInd, mFile, master.manufacturerId, master);
 
