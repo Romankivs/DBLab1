@@ -24,7 +24,6 @@ long findAvailableAddr(FILE* file, FILE* garbage) {
     long mAddr;
     long garbageCount = getGarbageCounter(garbage);
     if (garbageCount != 0) {
-        printf("CIMM");
         fseek(garbage, garbageCount * sizeof(long), SEEK_SET);
         fread(&mAddr, sizeof(long), 1, garbage);
 

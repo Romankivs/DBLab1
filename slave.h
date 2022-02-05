@@ -70,12 +70,14 @@ err_code_t insertSlave(int masterId, struct Slave slave) {
     if (err != SUCCESS)
         return err;
 
+    struct Slave check;
+    err = getSlave(&check, masterId, slave.carId);
+    if (err == SUCCESS)
+        return SLAVE_ID_ALREADY_TAKEN;
+
     slave.nextSlave = -1;
 
     long sAddr = findAvailableAddr(sFile, sGarbage);
-
-    slave.carId = (sAddr / sizeof(slave)) + 1;
-    printf("ID: %i\n", slave.carId);
 
     setSlaveAtAttr(sFile, slave, sAddr);
 
@@ -172,7 +174,6 @@ err_code_t updateSlave(int masterId, struct Slave updatedSlave) {
     if (!found)
         return SLAVE_NOT_FOUND;
 
-    updatedSlave.carId = slave.carId;
     setSlaveAtAttr(sFile, updatedSlave, nextSlaveAddr);
 
     fclose(sFile);

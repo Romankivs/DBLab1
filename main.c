@@ -57,22 +57,18 @@ int main() {
     printf("SUS: %s\n", errToStr(insertMaster(m)));
     printf("SUS2: %s\n", errToStr(deleteMaster(1)));
     printf("SUS3: %s\n", errToStr(insertMaster(m2)));
-    //long mAddr;
-    //retriveMasterAddr(&mAddr, ind, 1);
 
-    //printf("Adress: %i", mAddr);
-
+    insertSlave(1, s);
+    insertSlave(1, s2);
     //insertSlave(1, s);
-    //insertSlave(1, s);
-    //insertSlave(1, s);
-    //deleteSlave(1, 2);
-    //insertSlave(1, s2);
+    deleteSlave(1, 3);
+    insertSlave(1, s2);
     //updateSlave(1, s2);
 
-    //struct Slave slave;
-    //err_code_t  sRes = getSlave(&slave, 1, 4);
-    //if (sRes != 0) printf("%s\n", errToStr(sRes));
-    //printSlaveUtil(slave);
+    struct Slave slave;
+    err_code_t  sRes = getSlave(&slave, 1, 3);
+    if (sRes != 0) printf("%s\n", errToStr(sRes));
+    printSlaveUtil(slave);
     struct Master mRes;
     err_code_t res = getMaster(&mRes, 1);
     if (res != 0) printf("%s\n", errToStr(res));
