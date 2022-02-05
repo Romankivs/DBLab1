@@ -43,6 +43,12 @@ void utilM() {
         printMasterUtil(master);
 }
 
+void garbM() {
+    FILE* gb = fopen(MASTER_GARBAGE_LOC, "rb");
+    printGarbage(gb);
+    fclose(gb);
+}
+
 void getS() {
     int mId = enterMasterId();
     int sId = enterSlaveId();
@@ -84,6 +90,12 @@ void utilS() {
         printf("%s\n", errToStr(err));
     else
         printSlaveUtil(slave);
+}
+
+void garbS() {
+    FILE* gb = fopen(SLAVE_GARBAGE_LOC, "rb");
+    printGarbage(gb);
+    fclose(gb);
 }
 
 int main() {
@@ -155,6 +167,9 @@ int main() {
         else if (!strcmp(command, "util-m")) {
             utilM();
         }
+        else if (!strcmp(command, "garb-m")) {
+            garbM();
+        }
         else if (!strcmp(command, "get-s")) {
             getS();
         }
@@ -169,6 +184,9 @@ int main() {
         }
         else if (!strcmp(command, "util-s")) {
             utilS();
+        }
+        else if (!strcmp(command, "garb-s")) {
+            garbS();
         }
     }
 

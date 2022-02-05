@@ -27,3 +27,16 @@ void printSlaveUtil(struct Slave slave) {
     printSlave(slave);
     printf("Slave next slave address: %i\n", slave.nextSlave);
 }
+
+void printGarbage(FILE* garbage) {
+    long counter = getGarbageCounter(garbage);
+    long addr;
+    for (int i = 1; i <= counter; ++i) {
+        fseek(garbage, i * sizeof(long), SEEK_SET);
+        fread(&addr, sizeof(long), 1, garbage);
+        printf("%li", addr);
+        if (i != counter)
+            printf(", ");
+    }
+    printf("\n");
+}
