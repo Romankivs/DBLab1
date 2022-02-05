@@ -1,6 +1,7 @@
 #pragma once
 #include "tables.h"
 #include "error.h"
+#include "garbage.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -13,18 +14,41 @@ bool checkIndexInBounds(FILE* mInd, int id) {
     fseek(mInd, 0, SEEK_END);
     long mIndSize = ftell(mInd);
 
-    if (mIndSize <= 0 || (id * sizeof(long) > mIndSize)) {
+    if (mIndSize <= 0 || id <= 0) {
         return false;
     }
     return true;
 }
 
-long retriveMasterAddr(FILE* mInd, int id) {
-    long mAddr;
-    fseek(mInd, (id - 1) * sizeof(long), SEEK_SET);
-    fread(&mAddr, sizeof(long), 1, mInd);
+int compareIndexRow(const void* arg1, const void* arg2) {
+    const struct IndexRow* first = (const struct IndexRow*)arg1;
+    const struct IndexRow* second = (const struct IndexRow*)arg2;
+    if (first->index < second->index) {
+        return -1;
+    }
+    if (first->index > second->index) {
+       return 1;
+    }
+    return 0;
+}
 
-    return mAddr;
+err_code_t retriveMasterAddr(long* res, FILE* mInd, int id) {
+    fseek(mInd, 0, SEEK_END);
+    long indTableSize = ftell(mInd);
+    struct IndexRow* indTable = malloc(indTableSize);
+    fseek(mInd, 0, SEEK_SET);
+    fread(indTable, indTableSize, 1, mInd);
+
+    struct IndexRow rowToFind = {id, 0};
+    struct IndexRow* found = bsearch(&rowToFind, indTable,
+                                     indTableSize / sizeof(struct IndexRow),
+                                     sizeof(struct IndexRow), compareIndexRow);
+
+    if (found == NULL)
+        return MASTER_NOT_FOUND;
+
+    memcpy(res, &found->addr, sizeof(long));
+    return SUCCESS;
 }
 
 struct Master retriveMasterFromAddr(FILE* mFile, long mAddr) {
@@ -35,68 +59,25 @@ struct Master retriveMasterFromAddr(FILE* mFile, long mAddr) {
     return master;
 }
 
-struct Master retriveMaster(FILE* mInd, FILE* mFile, int id) {
-    long mAddr = retriveMasterAddr(mInd, id);
-    return retriveMasterFromAddr(mFile, mAddr);
-}
-
 void setMasterAtAddr(FILE* mFile, long mAddr, struct Master master) {
     fseek(mFile, mAddr, SEEK_SET);
     fwrite(&master, sizeof(master), 1, mFile);
 }
 
-void setMasterAtId(FILE* mInd, FILE* mFile, int id, struct Master master) {
-    long mAddr = retriveMasterAddr(mInd, id);
-    setMasterAtAddr(mFile, mAddr, master);
-}
-
-int getGarbageCounter(FILE* mGarbage) {
-    int garbageIdCount;
-    fread(&garbageIdCount, sizeof(int), 1, mGarbage);
-    return garbageIdCount;
-}
-
-void addIdToGarbage(FILE* mGarbage, int id) {
-    // get garbage counter
-    int garbageIdCount = getGarbageCounter(mGarbage);
-
-    // add deleted id to garbage file
-    fseek(mGarbage, (garbageIdCount + 1) * sizeof(int), SEEK_SET);
-    fwrite(&id, sizeof(int), 1, mGarbage);
-
-    // increment counter
-    garbageIdCount = garbageIdCount + 1;
-    fseek(mGarbage, 0, SEEK_SET);
-    fwrite(&garbageIdCount, sizeof(int), 1, mGarbage);
-}
-
-int retriveAvailableIdFromGarbage(FILE* mGarbage) {
-    int garbageIdCount = getGarbageCounter(mGarbage);
-
-    // get available id
-    int availableId;
-    fseek(mGarbage, garbageIdCount * sizeof(int), SEEK_SET);
-    fread(&availableId, sizeof(int), 1, mGarbage);
-
-    // decrement garbage counter
-    int decrementedId = garbageIdCount - 1;
-    fseek(mGarbage, 0, SEEK_SET);
-    fwrite(&decrementedId, sizeof(int), 1, mGarbage);
-
-    return availableId;
-}
-
-long addNewAddrToIndexTable(FILE* mInd, FILE* mFile) {
-    fseek(mFile, 0, SEEK_END);
-    long mAddr = ftell(mFile);
-    fwrite(&mAddr, sizeof(long), 1, mInd);
-    return mAddr;
-}
-
-int retriveAvailableIdFromIndexTable(FILE* mInd) {
+void addNewIndexRowToIndexTable(FILE* mInd, struct IndexRow newRow) {
     fseek(mInd, 0, SEEK_END);
-    int newId = (ftell(mInd) / sizeof(long)) + 1;
-    return newId;
+    long indTableSize = ftell(mInd);
+    struct IndexRow* indTable = malloc(indTableSize + sizeof(struct IndexRow));
+    fseek(mInd, 0, SEEK_SET);
+    fread(indTable, indTableSize, 1, mInd);
+
+    memcpy((indTable + indTableSize / sizeof(struct IndexRow)),
+           &newRow, sizeof(struct IndexRow));
+    qsort(indTable, indTableSize / sizeof(struct IndexRow), sizeof(struct IndexRow), compareIndexRow);
+
+    fclose(mInd);
+    mInd = fopen(MASTER_IND_LOC, "w+b");
+    fwrite(indTable, indTableSize + sizeof(struct IndexRow), 1, mInd);
 }
 
 err_code_t getMaster(struct Master* res, int id) {
@@ -111,7 +92,12 @@ err_code_t getMaster(struct Master* res, int id) {
         return INDEX_OUT_OF_BOUNDS;
     }
 
-    struct Master master = retriveMaster(mInd, mFile, id);
+    long mAddr;
+    err_code_t err = retriveMasterAddr(&mAddr, mInd, id);
+    if (err != SUCCESS)
+        return err;
+
+    struct Master master = retriveMasterFromAddr(mFile, mAddr);
 
     if (master.deleted) {
         return MASTER_DELETED;
@@ -134,21 +120,15 @@ err_code_t insertMaster(struct Master master) {
     master.deleted = 0;
     master.firstSlaveAddr = -1;
 
-    int garbageIdCount = getGarbageCounter(mGarbage);
+    long mAddr = findAvailableAddr(mFile, mGarbage);
+    struct IndexRow newRow = {master.manufacturerId, mAddr};
 
-    if (garbageIdCount != 0) {
-        int availableId = retriveAvailableIdFromGarbage(mGarbage);
-        master.manufacturerId = availableId;
+    struct Master check;
+    if (getMaster(&check, master.manufacturerId) == SUCCESS)
+        return MASTER_ID_ALREADY_TAKEN;
+    addNewIndexRowToIndexTable(mInd, newRow);
 
-        setMasterAtId(mInd, mFile, availableId, master);
-    }
-    else {
-        master.manufacturerId = retriveAvailableIdFromIndexTable(mInd);
-
-        long mAddr = addNewAddrToIndexTable(mInd, mFile);
-
-        setMasterAtAddr(mFile, mAddr, master);
-    }
+    setMasterAtAddr(mFile, mAddr, master);
 
     fclose(mInd); fclose(mFile); fclose(mGarbage);
     return SUCCESS;
@@ -162,16 +142,21 @@ err_code_t deleteMaster(int id) {
     if (!mInd || !mFile || !mGarbage)
         return FILESYSTEM_ERROR;
 
+    long mAddr;
+    err_code_t  err = retriveMasterAddr(&mAddr, mInd, id);
+    if (err != SUCCESS)
+        return err;
+
     struct Master master;
-    err_code_t  err = getMaster(&master, id);
+    err = getMaster(&master, id);
     if (err != SUCCESS)
         return err;
 
     // save marked as deleted
     master.deleted = true;
-    setMasterAtId(mInd, mFile, id, master);
+    setMasterAtAddr(mFile, mAddr, master);
 
-    addIdToGarbage(mGarbage, id);
+    addAddrToGarbage(mGarbage, mAddr);
 
     fclose(mInd); fclose(mFile); fclose(mGarbage);
     return SUCCESS;
@@ -184,8 +169,13 @@ err_code_t updateMaster(struct Master master) {
     if (!mInd || !mFile)
         return FILESYSTEM_ERROR;
 
+    long mAddr;
+    err_code_t  err = retriveMasterAddr(&mAddr, mInd, master.manufacturerId);
+    if (err != SUCCESS)
+        return err;
+
     struct Master oldMaster;
-    err_code_t err = getMaster(&oldMaster, master.manufacturerId);
+    err = getMaster(&oldMaster, master.manufacturerId);
     if (err != SUCCESS)
         return err;
 
@@ -193,7 +183,7 @@ err_code_t updateMaster(struct Master master) {
     master.deleted = oldMaster.deleted;
     master.firstSlaveAddr = oldMaster.firstSlaveAddr;
 
-    setMasterAtId(mInd, mFile, master.manufacturerId, master);
+    setMasterAtAddr(mFile, mAddr, master);
 
     fclose(mInd); fclose(mFile);
     return SUCCESS;

@@ -2,6 +2,7 @@
 #include "tables.h"
 #include "error.h"
 #include "master.h"
+#include "garbage.h"
 
 #define SLAVE_FILE_LOC "slave.fl"
 #define SLAVE_GARBAGE_LOC "slave_garbage"
@@ -16,44 +17,6 @@ struct Slave retriveSlaveFromAddr(FILE* sFile, long sAddr) {
 void setSlaveAtAttr(FILE* sFile, struct Slave slave, long sAddr) {
     fseek(sFile, sAddr, SEEK_SET);
     fwrite(&slave, sizeof(struct Slave), 1, sFile);
-}
-
-int getSlaveGarbageCounter(FILE* sGarbage) {
-    long garbageCount;
-    fread(&garbageCount, sizeof(long), 1, sGarbage);
-    return garbageCount;
-}
-
-void addAddrToGarbage(FILE* sGarbage, long addr) {
-    // get garbage counter
-    int garbageCount = getGarbageCounter(sGarbage);
-
-    // add deleted id to garbage file
-    fseek(sGarbage, (garbageCount + 1) * sizeof(long), SEEK_SET);
-    fwrite(&addr, sizeof(long), 1, sGarbage);
-
-    // increment counter
-    garbageCount = garbageCount + 1;
-    fseek(sGarbage, 0, SEEK_SET);
-    fwrite(&garbageCount, sizeof(long), 1, sGarbage);
-}
-
-long findAvailableAddr(FILE* sFile, FILE* sGarbage) {
-    long sAddr;
-    long garbageCount = getSlaveGarbageCounter(sGarbage);
-    if (garbageCount != 0) {
-        fseek(sGarbage, garbageCount * sizeof(long), SEEK_SET);
-        fread(&sAddr, sizeof(long), 1, sGarbage);
-
-        garbageCount = garbageCount - 1;
-        fseek(sGarbage, 0, SEEK_SET);
-        fwrite(&garbageCount, sizeof(long), 1, sGarbage);
-    }
-    else {
-        fseek(sFile, 0, SEEK_END);
-        sAddr = ftell(sFile);
-    }
-    return sAddr;
 }
 
 err_code_t getSlave(struct Slave* res, int masterId, int id) {
@@ -97,8 +60,13 @@ err_code_t insertSlave(int masterId, struct Slave slave) {
     if (!mInd || !mFile || !sFile || !sGarbage)
         return FILESYSTEM_ERROR;
 
+    long mAddr;
+    err_code_t err = retriveMasterAddr(&mAddr, mInd, masterId);
+    if (err != SUCCESS)
+        return err;
+
     struct Master master;
-    err_code_t err = getMaster(&master, masterId);
+    err = getMaster(&master, masterId);
     if (err != SUCCESS)
         return err;
 
@@ -113,7 +81,7 @@ err_code_t insertSlave(int masterId, struct Slave slave) {
 
     if (master.firstSlaveAddr == -1) {
         master.firstSlaveAddr = sAddr;
-        setMasterAtId(mInd, mFile, masterId, master);
+        setMasterAtAddr(mFile, mAddr, master);
     }
     else {
         struct Slave slave;

@@ -35,29 +35,47 @@ int main() {
     if (ftell(sGb) == 0) // populate if necessary
         fwrite(&garbageIdCount, sizeof(int), 1, sGb);
 
+    /*struct IndexRow n = {1, 0};
+    fseek(ind, 0, SEEK_SET);
+    fwrite(&n, sizeof(n), 1, ind);
+    fseek(file, 0, SEEK_SET);
+    fwrite(&m, sizeof(m), 1, file);
+
+    struct IndexRow n2 = {3, sizeof(struct Master)};
+    fseek(ind, sizeof(struct IndexRow), SEEK_SET);
+    fwrite(&n2, sizeof(n2), 1, ind);
+    fseek(file, sizeof(struct Master), SEEK_SET);
+    fwrite(&m2, sizeof(m2), 1, file);
+    */
+
     fclose(ind);
     fclose(file);
     fclose(gb);
     fclose(sFile);
     fclose(sGb);
 
-    insertMaster(m);
-    insertMaster(m2);
+    printf("SUS: %s\n", errToStr(insertMaster(m)));
+    printf("SUS2: %s\n", errToStr(deleteMaster(1)));
+    printf("SUS3: %s\n", errToStr(insertMaster(m2)));
+    //long mAddr;
+    //retriveMasterAddr(&mAddr, ind, 1);
 
-    insertSlave(1, s);
-    insertSlave(1, s);
-    insertSlave(1, s);
-    deleteSlave(1, 2);
-    insertSlave(1, s2);
+    //printf("Adress: %i", mAddr);
+
+    //insertSlave(1, s);
+    //insertSlave(1, s);
+    //insertSlave(1, s);
+    //deleteSlave(1, 2);
+    //insertSlave(1, s2);
     //updateSlave(1, s2);
 
-    struct Slave slave;
-    err_code_t  sRes = getSlave(&slave, 1, 4);
-    if (sRes != 0) printf("%s\n", errToStr(sRes));
-    printSlaveUtil(slave);
+    //struct Slave slave;
+    //err_code_t  sRes = getSlave(&slave, 1, 4);
+    //if (sRes != 0) printf("%s\n", errToStr(sRes));
+    //printSlaveUtil(slave);
     struct Master mRes;
     err_code_t res = getMaster(&mRes, 1);
-    if (res != 0) printf("%s", errToStr(res));
+    if (res != 0) printf("%s\n", errToStr(res));
     printMasterUtil(mRes);
     return 0;
 }

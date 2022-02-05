@@ -21,3 +21,8 @@ struct Slave {
 
     long nextSlave;
 };
+
+struct IndexRow {
+    int index;
+    long addr;
+};
