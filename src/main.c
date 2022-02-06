@@ -5,6 +5,15 @@
 #include "print.h"
 #include "input.h"
 
+void help() {
+    printf("Available commands:\n");
+    printf("get-m get-s\n");
+    printf("insert-m insert-s\n");
+    printf("delete-m delete-s\n");
+    printf("update-m update-s\n");
+    printf("garb-m garb-s\n");
+}
+
 void getM() {
     int mId = enterMasterId();
     struct Master master;
@@ -123,13 +132,17 @@ int main() {
 
     fclose(ind); fclose(file); fclose(gb); fclose(sFile); fclose(sGb);
 
+    printf("Enter \"help\" to see available commands\n");
     bool running = true;
     while(running) {
-        printf("\n>");
+        printf(">");
         char command[20];
         scanf("%20s", &command);
         if (!strcmp(command, "quit")) {
             running = false;
+        }
+        else if (!strcmp(command, "help")) {
+            help();
         }
         else if (!strcmp(command, "get-m")) {
             getM();
