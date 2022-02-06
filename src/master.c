@@ -13,6 +13,9 @@ int compareIndexRow(const void* arg1, const void* arg2) {
 }
 
 err_code_t retriveMasterAddr(long* res, FILE* mInd, int id) {
+    if (id <= 0)
+        return INDEX_OUT_OF_BOUNDS;
+
     fseek(mInd, 0, SEEK_END);
     long indTableSize = ftell(mInd);
     struct IndexRow* indTable = malloc(indTableSize);
