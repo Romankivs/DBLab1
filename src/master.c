@@ -1,15 +1,5 @@
 #include "master.h"
 
-bool checkIndexInBounds(FILE* mInd, int id) {
-    fseek(mInd, 0, SEEK_END);
-    long mIndSize = ftell(mInd);
-
-    if (mIndSize <= 0 || id <= 0) {
-        return false;
-    }
-    return true;
-}
-
 int compareIndexRow(const void* arg1, const void* arg2) {
     const struct IndexRow* first = (const struct IndexRow*)arg1;
     const struct IndexRow* second = (const struct IndexRow*)arg2;
@@ -76,10 +66,6 @@ err_code_t getMaster(struct Master* res, int id) {
 
     if (!mInd || !mFile) {
         return FILESYSTEM_ERROR;
-    }
-
-    if (!checkIndexInBounds(mInd, id)) {
-        return INDEX_OUT_OF_BOUNDS;
     }
 
     long mAddr;

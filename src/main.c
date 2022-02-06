@@ -99,15 +99,6 @@ void garbS() {
 }
 
 int main() {
-    struct Master m = {1, "BM", "Germany", "bmw.com",
-                       1999, -1, 0, false};
-
-    struct Master m2 = {1, "CCTV", "Germany", "bmw.com",
-                       1999, -1, 0, false};
-
-    struct Slave s = {1, 1999, "FIAT", 4};
-    struct Slave s2 = {3, 1999, "JEEP", 4};
-
     FILE* ind = fopen(MASTER_IND_LOC, "r+b");
     FILE* file = fopen(MASTER_FILE_LOC, "r+b");
     FILE* gb = fopen(MASTER_GARBAGE_LOC, "r+b");
@@ -130,20 +121,8 @@ int main() {
     if (ftell(sGb) == 0) // populate if necessary
         fwrite(&garbageIdCount, sizeof(long), 1, sGb);
 
-
     fclose(ind); fclose(file); fclose(gb); fclose(sFile); fclose(sGb);
 
-    /*insertMaster(m);
-    printf("%s\n", errToStr(insertSlave(1, s)));
-
-    struct Master master;
-    printf("%s\n", errToStr(getMaster(&master, 1)));
-    printMasterUtil(master);
-
-    struct Slave slave;
-    printf("%s\n", errToStr(getSlave(&slave, 1, 1)));
-    printSlaveUtil(slave);
-*/
     bool running = true;
     while(running) {
         printf("\n>");
@@ -189,6 +168,5 @@ int main() {
             garbS();
         }
     }
-
     return 0;
 }
